@@ -1,0 +1,25 @@
+{
+  "name": "rekord-migrations",
+  "version": "1.0.0",
+  "homepage": "https://github.com/Rekord/rekord-migrations",
+  "authors": [
+    "Philip Diffenderfer <pdiffenderfer@gmail.com>"
+  ],
+  "description": "Migrations for rekord",
+  "main": "build/rekord-migrations.js",
+  "keywords": [
+    "javascript",
+    "orm",
+    "offline",
+    "realtime",
+    "migrations"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
