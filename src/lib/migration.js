@@ -2,6 +2,8 @@
 var Migrations = [];
 var MigrationMap = {};
 
+var migrationLogs = [];
+
 function migration(name, dependencies, migrate)
 {
   var definition = {
@@ -12,4 +14,10 @@ function migration(name, dependencies, migrate)
 
   MigrationMap[ name ] = Migrations.length;
   Migrations.push( definition );
+}
+
+function migrationsClear()
+{
+  MigrationMap = {};
+  Migrations.length = 0;
 }

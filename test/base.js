@@ -1,7 +1,6 @@
 
 // Configuration
 
-Rekord.autoload = true;
 Rekord.Database.Defaults.load = Rekord.Load.All;
 
 QUnit.config.reorder = false;
@@ -319,6 +318,22 @@ TestStore.prototype =
   {
     this.lastOperation = 'all';
     this.finishDelayed( success, failure, this.map.values, this.map.keys );
+  },
+  reset: function(keys, values, success, failure)
+  {
+    this.lastOperation = 'reset';
+
+    var map = this.map;
+    function onReset()
+    {
+      map.reset();
+      for (var i = 0; i < keys.length; i++) {
+        map.put( keys[ i ], values[ i ] );
+      }
+      success.apply( this, arguments );
+    }
+
+    this.finishDelayed( onReset, failure, keys, values );
   }
 };
 

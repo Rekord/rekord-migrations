@@ -9,7 +9,7 @@ function ModelMigrator(app, name, store, data)
 
 ModelMigrator.prototype =
 {
-  
+
   drop: function(fieldInput)
   {
     var fields = toArray( fieldInput );
@@ -58,6 +58,14 @@ ModelMigrator.prototype =
     });
   },
 
+  filter: function(filter)
+  {
+    return this.transform(function(record)
+    {
+      return !!filter( record );
+    });
+  },
+
   setField: function(record, field, value)
   {
     if (record.$saved)
@@ -88,7 +96,12 @@ ModelMigrator.prototype =
 
       if ( this.migrateRemovePending || record.$status !== Model.Status.RemovePending )
       {
-        transformer.call( this, record );
+        var result = transformer.call( this, record );
+
+        if ( result === false )
+        {
+          data.splice( i--, 1 );
+        }
       }
     }
 

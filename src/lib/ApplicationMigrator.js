@@ -20,9 +20,8 @@ ApplicationMigrator.prototype =
   {
     this.requireExists( name );
 
-    if ( name in this.stores )
+    if ( name in this.datas )
     {
-      this.stores[ name ].destroy();
       this.datas[ name ].clear();
     }
   },
@@ -35,8 +34,7 @@ ApplicationMigrator.prototype =
     if ( fromName in this.datas )
     {
       this.datas[ toName ] = this.datas[ fromName ];
-
-      delete this.datas[ fromName ];
+      this.datas[ fromName ] = new Collection();
     }
   },
 
@@ -52,7 +50,7 @@ ApplicationMigrator.prototype =
 
   newRecord: function(props, status)
   {
-    props.$saved = props;
+    props.$saved = copy( props );
     props.$status = status || Model.Status.Synced;
 
     return props;
@@ -81,10 +79,12 @@ ApplicationMigrator.prototype =
       {
         throw 'A creation migration for ' + name + ' was attempted but did not exist in the dependencies array';
       }
+      /* A store should exist - since they have a Rekord definition
       if ( name in this.stores )
       {
         throw 'A creation migration for ' + name + ' was attempted but already exists';
       }
+      */
     }
   }
 };

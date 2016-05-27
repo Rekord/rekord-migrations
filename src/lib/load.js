@@ -6,23 +6,29 @@ Rekord.load = function(callback, context)
 {
   var promise = Rekord.loadPromise = Rekord.loadPromise || new Promise( null, false );
   var loading = Rekord.unloaded.slice();
+  var loaded = [];
+  var loadedSuccess = [];
 
   promise.success( callback, context || this );
 
   Rekord.unloaded.length = 0;
 
-  var migrationStore = Rekord.store({
-    name: Rekord.migrationStore
-  });
-
-  // migrationStore.put( key, record, success, failure );
-
+  var migrationStore = Rekord.store( {name: Rekord.migrationStore} );
+  var migrationsLoaded = [];
   var stores = {};
   var datas = {};
   var required = {};
+  var storeCount = 0;
+  var storesLoaded = 0;
+  var storesReset = 0;
 
   function onMigrationsLoaded(migrations)
   {
+    Rekord.trigger( Events.MigrationsLoaded, [migrations] );
+
+    // Make available to other functions.
+    migrationsLoaded = migrations;
+
     // Remove registered migrations that have already ran
     for (var i = 0; i < migrations.length; i++)
     {
@@ -42,19 +48,164 @@ Rekord.load = function(callback, context)
     }
 
     // Grab store reference from Rekord - or create one
+    for (var modelName in required)
+    {
+      if ( modelName in Rekord.classes )
+      {
+        stores[ modelName ] = Rekord.classes[ modelName ].Database.store;
+      }
+      else
+      {
+        stores[ modelName ] = Rekord.store( {name: modelName} );
+      }
+
+      datas[ modelName ] = new Collection();
+      storeCount++;
+    }
+
     // Call all on stores to populated datas with Collection
+    for (var modelName in stores)
+    {
+      var handler = handleStoreLoad( modelName );
+
+      stores[ modelName ].all( handler, handler );
+    }
+  }
+
+  function handleStoreLoad(modelName)
+  {
+    return function onStoreLoad(data)
+    {
+      if ( isArray( data ) )
+      {
+        datas[ modelName ].reset( data );
+      }
+
+      if ( ++storesLoaded === storeCount )
+      {
+        onStoresLoaded();
+      }
+    };
+  }
+
+  function onStoresLoaded()
+  {
     // Iterate over Migrations and for each migration that exists in MigrationMap...
-    // call migration function passing datas, stores, and new ApplicationMigrator
+    for (var i = 0; i < Migrations.length; i++)
+    {
+      var definition = Migrations[ i ];
+
+      if ( definition.name in MigrationMap )
+      {
+        var migrator = new ApplicationMigrator( definition.name,
+          definition.dependencies, stores, datas );
+
+        // call migration function passing datas, stores, and new ApplicationMigrator
+        definition.migrate( migrator, datas );
+
+        Rekord.trigger( Events.MigrationRan, [definition.name, migrator] );
+      }
+    }
+
     // apply changes in datas to the stores if !migrationTest
-    // log all changes if migrationTest to console
-    // Run all loadBegin
-    // When all loadBegins are finished, run loadFinish
-    // When all loadFinishes are finished, promise is resolved
+    if ( !Rekord.migrationTest )
+    {
+      for (var modelName in stores)
+      {
+        var modelStore = stores[ modelName ];
+        var modelData = datas[ modelName ];
+        var modelKeys = [];
+        var modelClass = Rekord.classes[ modelName ];
+
+        if ( modelClass )
+        {
+          var modelDatabase = modelClass.Database;
+
+          for (var k = 0; k < modelData.length; k++)
+          {
+            modelKeys[ k ] = modelDatabase.buildKeyFromInput( modelData[ k ] );
+          }
+
+          modelStore.reset( modelKeys, modelData, onStoreReset, onStoreReset );
+        }
+        else if ( modelData.length === 0 )
+        {
+          modelStore.reset( modelKeys, modelData, onStoreReset, onStoreReset );
+        }
+        else
+        {
+          Rekord.trigger( Events.MigrationClassNotFound, [modelName, modelStore, modelData] );
+
+          onStoreReset();
+        }
+      }
+
+      for (var migrationName in MigrationMap)
+      {
+        migrationStore.put( migrationName, migrationName, noop, noop );
+      }
+
+      Rekord.trigger( Events.MigrationsSaved, [MigrationMap] );
+    }
+    else
+    {
+      if ( global.console && global.console.log )
+      {
+        global.console.log( migrationLogs );
+      }
+
+      Rekord.trigger( Events.MigrationsTested, [migrationLogs] );
+    }
+  }
+
+  function onStoreReset()
+  {
+    if ( ++storesReset === storeCount )
+    {
+      Rekord.trigger( Events.MigrationsFinished, [] );
+
+      onNormalLoadProcedure();
+    }
   }
 
   function onMigrationsFailed()
   {
-    // throw error?
+    Rekord.trigger( Events.MigrationsNotLoaded, [] );
+
+    onNormalLoadProcedure();
+  }
+
+  function onNormalLoadProcedure()
+  {
+    // Run all loadBegin
+    for (var i = 0; i < loading.length; i++)
+    {
+      loading[ i ].loadBegin( onLoadFinish );
+    }
+  }
+
+  function onLoadFinish(success, db)
+  {
+    // When all loadBegins are finished, run loadFinish
+    loadedSuccess.push( success );
+    loaded.push( db );
+
+    if ( loaded.length === loading.length )
+    {
+      for (var k = 0; k < loaded.length; k++)
+      {
+        var db = loaded[ k ];
+        var success = loadedSuccess[ k ];
+
+        if ( success )
+        {
+          db.loadFinish();
+        }
+      }
+
+      // When all loadFinishes are finished, promise is resolved
+      promise.reset().resolve();
+    }
   }
 
   migrationStore.all( onMigrationsLoaded, onMigrationsFailed );

@@ -3,6 +3,7 @@
   var Model = Rekord.Model;
   var Collection = Rekord.Collection;
   var Promise = Rekord.Promise;
+  var Events = Rekord.Events;
 
   var isArray = Rekord.isArray;
   var toArray = Rekord.toArray;
@@ -10,3 +11,6 @@
   var isEmpty = Rekord.isEmpty;
 
   var copy = Rekord.copy;
+  var noop = Rekord.noop;
+
+  var indexOf = Rekord.indexOf;
