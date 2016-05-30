@@ -39,7 +39,7 @@ The easiest way to install rekord-migrations is through bower via `bower install
 
 **Example**
 
-```
+```javascript
 // simulate the migration and log all changes
 Rekord.migrationTest = true;
 
