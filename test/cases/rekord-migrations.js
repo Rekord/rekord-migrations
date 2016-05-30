@@ -388,6 +388,101 @@ test( 'model rename', function(assert)
   Rekord.migrationsClear();
 });
 
+test( 'model moveRelatedOut', function(assert)
+{
+  var prefix = 'model_moveRelatedOut_';
+  var TodoName = prefix + 'todos';
+  var TodoListName = prefix + 'todo_lists';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  var TodoListStore = Rekord.store[ TodoListName ] = new TestStore();
+
+  TodoListStore.map.put(1, newRecord({
+    id: 1, name: 'list1',
+    todos: [
+      newRecord({id: 2, list_id: 1, name: 'task2'}),
+      newRecord({id: 3, list_id: 1, name: 'task3'}),
+      newRecord({id: 4, list_id: 1, name: 'task4'})
+    ]
+  }))
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, TodoListName], function(migrator, datas)
+  {
+    migrator.moveRelatedOut(TodoListName, 'todos', TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['list_id', 'name']
+  });
+
+  var TodoList = Rekord({
+    name: TodoListName,
+    fields: ['name'],
+    hasMany: {
+      todos: {
+        model: Todo,
+        foreign: 'list_id'
+      }
+    }
+  });
+
+  Rekord.load();
+
+  strictEqual( TodoStore.map.size(), 3 );
+
+  Rekord.migrationsClear();
+});
+
+test( 'model moveRelatedIn', function(assert)
+{
+  var prefix = 'model_moveRelatedIn_';
+  var TodoName = prefix + 'todos';
+  var TodoListName = prefix + 'todo_lists';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  var TodoListStore = Rekord.store[ TodoListName ] = new TestStore();
+
+  TodoListStore.map.put(1, newRecord({id: 1, name: 'list1'}));
+  TodoStore.map.put(2, newRecord({id: 2, list_id: 1, name: 'task2'}));
+  TodoStore.map.put(3, newRecord({id: 3, list_id: 1, name: 'task3'}));
+  TodoStore.map.put(4, newRecord({id: 4, list_id: 1, name: 'task4'}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, TodoListName], function(migrator, datas)
+  {
+    migrator.moveRelatedIn(TodoName, 'list_id', TodoListName, 'id', 'todos', true);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['list_id', 'name'],
+    cache: Rekord.Cache.None
+  });
+
+  var TodoList = Rekord({
+    name: TodoListName,
+    fields: ['name'],
+    hasMany: {
+      todos: {
+        model: Todo,
+        foreign: 'list_id',
+        store: Rekord.Store.Model
+      }
+    }
+  });
+
+  Rekord.load();
+
+  strictEqual( TodoStore.map.size(), 0 );
+  strictEqual( TodoList.get(1).todos.length, 3 );
+
+  Rekord.migrationsClear();
+});
+
 // field transform
 // model newRecord
 // model throw exception if model is not in dependencies

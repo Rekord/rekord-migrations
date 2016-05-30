@@ -38,13 +38,63 @@ ApplicationMigrator.prototype =
     }
   },
 
-  migrate: function(name, migrator)
+  moveRelatedOut: function(fromName, field, intoName)
+  {
+    this.requireExists( fromName );
+    this.requireNotExists( intoName );
+
+    var fromDatas = this.datas[ fromName ];
+    var intoDatas = this.datas[ intoName ];
+
+    for (var i = 0; i < fromDatas.length; i++)
+    {
+      var record = fromDatas[ i ];
+      var related = record[ field ];
+
+      if ( isArray( related ) )
+      {
+        intoDatas.addAll( related );
+      }
+      else if ( isObject( related ) )
+      {
+        intoDatas.add( related );
+      }
+
+      delete record[ field ];
+    }
+  },
+
+  moveRelatedIn: function(fromName, fromKey, intoName, intoKey, field, many)
+  {
+    this.requireExists( fromName );
+    this.requireExists( intoName );
+
+    var fromDatas = this.datas[ fromName ];
+    var intoDatas = this.datas[ intoName ];
+
+    for (var i = 0; i < intoDatas.length; i++)
+    {
+      var record = intoDatas[ i ];
+      var related = fromDatas.where(function(fromModel)
+      {
+        return propsMatch(fromModel, fromKey, record, intoKey);
+      });
+
+      record[ field ] = many ? related : related[0];
+    }
+
+    fromDatas.clear();
+  },
+
+  migrate: function(name, migratorCallback)
   {
     this.requireExists( name );
 
     if ( name in this.stores )
     {
-      return migrator( new ModelMigrator( this, name, this.stores[ name ], this.datas[ name ] ) );
+      var migrator = new ModelMigrator( this, name, this.stores[ name ], this.datas[ name ] );
+
+      return migratorCallback.call( migrator, migrator );
     }
   },
 

@@ -6,6 +6,7 @@
   var Events = Rekord.Events;
 
   var isArray = Rekord.isArray;
+  var isObject = Rekord.isObject;
   var toArray = Rekord.toArray;
   var isFunction = Rekord.isFunction;
   var isEmpty = Rekord.isEmpty;
@@ -14,3 +15,4 @@
   var noop = Rekord.noop;
 
   var indexOf = Rekord.indexOf;
+  var propsMatch = Rekord.propsMatch;
