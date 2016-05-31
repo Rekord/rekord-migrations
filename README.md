@@ -34,8 +34,8 @@ resumed.
 
 The easiest way to install rekord-migrations is through bower via `bower install rekord-migrations`.
 
-- rekord-migrations.js is `12KB` (`2.8KB` gzipped)
-- rekord-migrations.min.js is `5KB` (`1.7KB` gzipped)
+- rekord-migrations.js is `16KB` (`3.4KB` gzipped)
+- rekord-migrations.min.js is `7KB` (`2.2KB` gzipped)
 
 **Example**
 

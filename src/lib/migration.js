@@ -21,3 +21,8 @@ function migrationsClear()
   MigrationMap = {};
   Migrations.length = 0;
 }
+
+function migrationLog()
+{
+  migrationLogs.push( Array.prototype.slice.call( arguments ) );
+}

@@ -12,6 +12,8 @@
 
   Rekord.migration = migration;
   Rekord.migrationsClear = migrationsClear;
+  Rekord.migrationLogs = migrationLogs;
+
   Rekord.Migrations = Migrations;
 
   Rekord.ApplicationMigrator = ApplicationMigrator;

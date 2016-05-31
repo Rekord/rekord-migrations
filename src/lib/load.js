@@ -26,6 +26,11 @@ Rekord.load = function(callback, context)
   {
     Rekord.trigger( Events.MigrationsLoaded, [migrations] );
 
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'migrations loaded', migrations );
+    }
+
     // Make available to other functions.
     migrationsLoaded = migrations;
 
@@ -33,6 +38,11 @@ Rekord.load = function(callback, context)
     for (var i = 0; i < migrations.length; i++)
     {
       delete MigrationMap[ migrations[ i ] ];
+    }
+
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'migrations being ran', MigrationMap );
     }
 
     // Gather required stores
@@ -81,6 +91,11 @@ Rekord.load = function(callback, context)
         datas[ modelName ].reset( data );
       }
 
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store loaded', datas[ modelName ] );
+      }
+
       if ( ++storesLoaded === storeCount )
       {
         onStoresLoaded();
@@ -99,6 +114,11 @@ Rekord.load = function(callback, context)
       {
         var migrator = new ApplicationMigrator( definition.name,
           definition.dependencies, stores, datas );
+
+        if ( Rekord.migrationTest )
+        {
+          migrationLog( 'running migration ' + definition.name, migrator );
+        }
 
         // call migration function passing datas, stores, and new ApplicationMigrator
         definition.migrate( migrator, datas );
@@ -149,12 +169,24 @@ Rekord.load = function(callback, context)
     }
     else
     {
-      if ( global.console && global.console.log )
+      var console = global.console;
+
+      if ( console && console.log )
       {
-        global.console.log( migrationLogs );
+        var log = console.log;
+        var call = Function.prototype.call;
+
+        for (var i = 0; i < migrationLogs.length; i++)
+        {
+          migrationLogs[ i ].unshift( console );
+
+          call.apply( log, migrationLogs[ i ] );
+        }
       }
 
       Rekord.trigger( Events.MigrationsTested, [migrationLogs] );
+
+      onNormalLoadProcedure();
     }
   }
 

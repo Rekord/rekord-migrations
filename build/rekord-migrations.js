@@ -32,16 +32,28 @@ ApplicationMigrator.prototype =
   {
     this.requireNotExists( name );
 
-    this.datas[ name ] = new Collection( creator() );
+    var created = this.datas[ name ] = new Collection( creator() );
+
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'new store ' + name + ' created  (' + created.length + ' records)', created );
+    }
   },
 
   drop: function(name)
   {
     this.requireExists( name );
 
-    if ( name in this.datas )
+    var dropping = this.datas[ name ];
+
+    if ( dropping )
     {
-      this.datas[ name ].clear();
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + name + ' dropped (' + dropping.length + ' records)', dropping.slice() );
+      }
+
+      dropping.clear();
     }
   },
 
@@ -50,10 +62,17 @@ ApplicationMigrator.prototype =
     this.requireExists( fromName );
     this.requireNotExists( toName );
 
-    if ( fromName in this.datas )
+    var fromDatas = this.datas[ fromName ];
+
+    if ( fromDatas )
     {
-      this.datas[ toName ] = this.datas[ fromName ];
+      this.datas[ toName ] = fromDatas;
       this.datas[ fromName ] = new Collection();
+
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + fromName + ' renamed to ' + toName + ' (' + fromDatas.length + ' records)', fromDatas );
+      }
     }
   },
 
@@ -65,21 +84,29 @@ ApplicationMigrator.prototype =
     var fromDatas = this.datas[ fromName ];
     var intoDatas = this.datas[ intoName ];
 
-    for (var i = 0; i < fromDatas.length; i++)
+    if ( fromDatas && intoDatas )
     {
-      var record = fromDatas[ i ];
-      var related = record[ field ];
-
-      if ( isArray( related ) )
+      for (var i = 0; i < fromDatas.length; i++)
       {
-        intoDatas.addAll( related );
-      }
-      else if ( isObject( related ) )
-      {
-        intoDatas.add( related );
+        var record = fromDatas[ i ];
+        var related = record[ field ];
+
+        if ( isArray( related ) )
+        {
+          intoDatas.addAll( related );
+        }
+        else if ( isObject( related ) )
+        {
+          intoDatas.add( related );
+        }
+
+        delete record[ field ];
       }
 
-      delete record[ field ];
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + intoName + ' populated from the records located in the ' + field + ' property of the ' + fromName + ' store (' + intoDatas.length + ' records)', intoDatas );
+      }
     }
   },
 
@@ -90,19 +117,29 @@ ApplicationMigrator.prototype =
 
     var fromDatas = this.datas[ fromName ];
     var intoDatas = this.datas[ intoName ];
+    var totalRelated = 0;
 
-    for (var i = 0; i < intoDatas.length; i++)
+    if ( fromDatas && intoDatas )
     {
-      var record = intoDatas[ i ];
-      var related = fromDatas.where(function(fromModel)
+      for (var i = 0; i < intoDatas.length; i++)
       {
-        return propsMatch(fromModel, fromKey, record, intoKey);
-      });
+        var record = intoDatas[ i ];
+        var related = fromDatas.where(function(fromModel)
+        {
+          return propsMatch(fromModel, fromKey, record, intoKey);
+        });
 
-      record[ field ] = many ? related : related[0];
+        record[ field ] = many ? related : related[0];
+        totalRelated += related.length;
+      }
+
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + fromName + ' moved into ' + intoName + ' to property ' + field + ' (' + totalRelated + ' matched, ' + (fromDatas.length - totalRelated) + ' unmatched)', fromDatas.slice() );
+      }
+
+      fromDatas.clear();
     }
-
-    fromDatas.clear();
   },
 
   migrate: function(name, migratorCallback)
@@ -113,7 +150,19 @@ ApplicationMigrator.prototype =
     {
       var migrator = new ModelMigrator( this, name, this.stores[ name ], this.datas[ name ] );
 
-      return migratorCallback.call( migrator, migrator );
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + name + ' migration start', migrator );
+      }
+
+      var result = migratorCallback.call( migrator, migrator );
+
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store ' + name + ' migration end', migrator );
+      }
+
+      return result;
     }
   },
 
@@ -127,33 +176,37 @@ ApplicationMigrator.prototype =
 
   requireExists: function(name)
   {
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'ensuring store for ' + name + ' exists in ' + (this.safe ? 'safe' : 'strict') + ' mode', indexOf( this.dependents, name ) !== false );
+    }
+
     if ( !this.safe )
     {
       if ( indexOf( this.dependents, name ) === false )
       {
         throw 'A migration for ' + name + ' was attempted but did not exist in the dependencies array';
       }
-      if ( !(name in this.stores) )
-      {
-        throw 'A migration for ' + name + ' was attempted but does not exist locally (or was not defined)';
-      }
     }
   },
 
   requireNotExists: function(name)
   {
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'ensuring store for ' + name + ' does not exist yet in ' + (this.safe ? 'safe' : 'strict') + ' mode', indexOf( this.dependents, name ) !== false && this.datas[ name ].length === 0 );
+    }
+
     if ( !this.safe )
     {
       if ( indexOf( this.dependents, name ) === false )
       {
         throw 'A creation migration for ' + name + ' was attempted but did not exist in the dependencies array';
       }
-      /* A store should exist - since they have a Rekord definition
-      if ( name in this.stores )
+      if ( this.datas[ name ].length !== 0 )
       {
-        throw 'A creation migration for ' + name + ' was attempted but already exists';
+        throw 'A creation migration for ' + name + ' was attempted but existing data was found';
       }
-      */
     }
   }
 };
@@ -174,6 +227,11 @@ ModelMigrator.prototype =
   {
     var fields = toArray( fieldInput );
 
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'dropping fields', fields );
+    }
+
     return this.transform(function(record)
     {
       for (var i = 0; i < fields.length; i++)
@@ -187,6 +245,11 @@ ModelMigrator.prototype =
   {
     if ( isFunction( defaultValue ) )
     {
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'adding new field with dynamic default value: ' + defaultValue );
+      }
+
       return this.transform(function(record)
       {
         this.setField( record, field, defaultValue( record ) );
@@ -194,6 +257,11 @@ ModelMigrator.prototype =
     }
     else
     {
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'adding new field with constant default value', defaultValue );
+      }
+
       return this.transform(function(record)
       {
         this.setField( record, field, copy( defaultValue ) );
@@ -203,6 +271,11 @@ ModelMigrator.prototype =
 
   rename: function(oldField, newField)
   {
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'renaming field from ' + oldField + ' to ' + newField );
+    }
+
     return this.transform(function(record)
     {
       this.setField( record, newField, record[ oldField ] );
@@ -212,6 +285,11 @@ ModelMigrator.prototype =
 
   convert: function(field, converter)
   {
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'converting field ' + field + ': ' + converter );
+    }
+
     return this.transform(function(record)
     {
       this.setField( record, field, converter( record[ field ], record ) );
@@ -220,6 +298,11 @@ ModelMigrator.prototype =
 
   filter: function(filter)
   {
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'filtering records: ' + filter );
+    }
+
     return this.transform(function(record)
     {
       return !!filter( record );
@@ -228,6 +311,18 @@ ModelMigrator.prototype =
 
   setField: function(record, field, value)
   {
+    if ( Rekord.migrationTest )
+    {
+      if (record.$saved)
+      {
+        migrationLog( 'set field ' + field + ' to ' + value + ' where saved value was ' + record.$saved[ field ] + ' and stored value was ' + record[ field ], record );
+      }
+      else
+      {
+        migrationLog( 'set field ' + field + ' to ' + value + ' where stored value was ' + record[ field ], record );
+      }
+    }
+
     if (record.$saved)
     {
       record.$saved[ field ] = value;
@@ -238,6 +333,18 @@ ModelMigrator.prototype =
 
   removeField: function(record, field)
   {
+    if ( Rekord.migrationTest )
+    {
+      if (record.$saved)
+      {
+        migrationLog( 'remove field ' + field + ' where saved value was ' + record.$saved[ field ] + ' and stored value was ' + record[ field ], record );
+      }
+      else
+      {
+        migrationLog( 'remove field ' + field + ' where stored value was ' + record[ field ], record );
+      }
+    }
+
     if (record.$saved)
     {
       delete record.$saved[ field ];
@@ -250,6 +357,11 @@ ModelMigrator.prototype =
   {
     var data = this.data;
 
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'running transform: ' + transformer );
+    }
+
     for (var i = 0; i < data.length; i++)
     {
       var record = data[ i ];
@@ -260,6 +372,11 @@ ModelMigrator.prototype =
 
         if ( result === false )
         {
+          if ( Rekord.migrationTest )
+          {
+            migrationLog( 'removing record', record );
+          }
+
           data.splice( i--, 1 );
         }
       }
@@ -298,6 +415,11 @@ Rekord.load = function(callback, context)
   {
     Rekord.trigger( Events.MigrationsLoaded, [migrations] );
 
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'migrations loaded', migrations );
+    }
+
     // Make available to other functions.
     migrationsLoaded = migrations;
 
@@ -305,6 +427,11 @@ Rekord.load = function(callback, context)
     for (var i = 0; i < migrations.length; i++)
     {
       delete MigrationMap[ migrations[ i ] ];
+    }
+
+    if ( Rekord.migrationTest )
+    {
+      migrationLog( 'migrations being ran', MigrationMap );
     }
 
     // Gather required stores
@@ -353,6 +480,11 @@ Rekord.load = function(callback, context)
         datas[ modelName ].reset( data );
       }
 
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'store loaded', datas[ modelName ] );
+      }
+
       if ( ++storesLoaded === storeCount )
       {
         onStoresLoaded();
@@ -371,6 +503,11 @@ Rekord.load = function(callback, context)
       {
         var migrator = new ApplicationMigrator( definition.name,
           definition.dependencies, stores, datas );
+
+        if ( Rekord.migrationTest )
+        {
+          migrationLog( 'running migration ' + definition.name, migrator );
+        }
 
         // call migration function passing datas, stores, and new ApplicationMigrator
         definition.migrate( migrator, datas );
@@ -421,12 +558,24 @@ Rekord.load = function(callback, context)
     }
     else
     {
-      if ( global.console && global.console.log )
+      var console = global.console;
+
+      if ( console && console.log )
       {
-        global.console.log( migrationLogs );
+        var log = console.log;
+        var call = Function.prototype.call;
+
+        for (var i = 0; i < migrationLogs.length; i++)
+        {
+          migrationLogs[ i ].unshift( console );
+
+          call.apply( log, migrationLogs[ i ] );
+        }
       }
 
       Rekord.trigger( Events.MigrationsTested, [migrationLogs] );
+
+      onNormalLoadProcedure();
     }
   }
 
@@ -509,6 +658,11 @@ function migrationsClear()
   Migrations.length = 0;
 }
 
+function migrationLog()
+{
+  migrationLogs.push( Array.prototype.slice.call( arguments ) );
+}
+
 
   Events.MigrationsLoaded       = 'migrations-loaded';
   Events.MigrationRan           = 'migration-ran';
@@ -523,6 +677,8 @@ function migrationsClear()
 
   Rekord.migration = migration;
   Rekord.migrationsClear = migrationsClear;
+  Rekord.migrationLogs = migrationLogs;
+
   Rekord.Migrations = Migrations;
 
   Rekord.ApplicationMigrator = ApplicationMigrator;
