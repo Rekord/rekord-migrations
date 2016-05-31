@@ -11,24 +11,27 @@ ApplicationMigrator.prototype =
 {
   create: function(name, creator)
   {
-    this.requireNotExists( name );
+    var valid = this.requireNotExists( name );
 
-    var created = this.datas[ name ] = new Collection( creator() );
-
-    if ( Rekord.migrationTest )
+    if ( valid )
     {
-      migrationLog( 'new store ' + name + ' created  (' + created.length + ' records)', created );
+      var created = this.datas[ name ] = new Collection( creator() );
+
+      if ( Rekord.migrationTest )
+      {
+        migrationLog( 'new store ' + name + ' created  (' + created.length + ' records)', created );
+      }
     }
   },
 
   drop: function(name)
   {
-    this.requireExists( name );
+    var valid = this.requireExists( name );
 
-    var dropping = this.datas[ name ];
-
-    if ( dropping )
+    if ( valid )
     {
+      var dropping = this.datas[ name ];
+
       if ( Rekord.migrationTest )
       {
         migrationLog( 'store ' + name + ' dropped (' + dropping.length + ' records)', dropping.slice() );
@@ -40,13 +43,12 @@ ApplicationMigrator.prototype =
 
   rename: function(fromName, toName)
   {
-    this.requireExists( fromName );
-    this.requireNotExists( toName );
+    var valid = this.requireExists( fromName ) && this.requireNotExists( toName );
 
-    var fromDatas = this.datas[ fromName ];
-
-    if ( fromDatas )
+    if ( valid )
     {
+      var fromDatas = this.datas[ fromName ];
+
       this.datas[ toName ] = fromDatas;
       this.datas[ fromName ] = new Collection();
 
@@ -59,14 +61,13 @@ ApplicationMigrator.prototype =
 
   moveRelatedOut: function(fromName, field, intoName)
   {
-    this.requireExists( fromName );
-    this.requireNotExists( intoName );
+    var valid = this.requireExists( fromName ) && this.requireNotExists( intoName );
 
-    var fromDatas = this.datas[ fromName ];
-    var intoDatas = this.datas[ intoName ];
-
-    if ( fromDatas && intoDatas )
+    if ( valid )
     {
+      var fromDatas = this.datas[ fromName ];
+      var intoDatas = this.datas[ intoName ];
+
       for (var i = 0; i < fromDatas.length; i++)
       {
         var record = fromDatas[ i ];
@@ -93,15 +94,14 @@ ApplicationMigrator.prototype =
 
   moveRelatedIn: function(fromName, fromKey, intoName, intoKey, field, many)
   {
-    this.requireExists( fromName );
-    this.requireExists( intoName );
+    var valid = this.requireExists( fromName ) && this.requireExists( intoName );
 
-    var fromDatas = this.datas[ fromName ];
-    var intoDatas = this.datas[ intoName ];
-    var totalRelated = 0;
-
-    if ( fromDatas && intoDatas )
+    if ( valid )
     {
+      var fromDatas = this.datas[ fromName ];
+      var intoDatas = this.datas[ intoName ];
+      var totalRelated = 0;
+
       for (var i = 0; i < intoDatas.length; i++)
       {
         var record = intoDatas[ i ];
@@ -125,9 +125,9 @@ ApplicationMigrator.prototype =
 
   migrate: function(name, migratorCallback)
   {
-    this.requireExists( name );
+    var valid = this.requireExists( name );
 
-    if ( name in this.stores )
+    if ( valid )
     {
       var migrator = new ModelMigrator( this, name, this.stores[ name ], this.datas[ name ] );
 
@@ -157,37 +157,46 @@ ApplicationMigrator.prototype =
 
   requireExists: function(name)
   {
+    var exists = indexOf( this.dependents, name ) !== false;
+
     if ( Rekord.migrationTest )
     {
-      migrationLog( 'ensuring store for ' + name + ' exists in ' + (this.safe ? 'safe' : 'strict') + ' mode', indexOf( this.dependents, name ) !== false );
+      migrationLog( 'ensuring store for ' + name + ' exists in ' + (this.safe ? 'safe' : 'strict') + ' mode', exists );
     }
 
     if ( !this.safe )
     {
-      if ( indexOf( this.dependents, name ) === false )
+      if ( !exists )
       {
         throw 'A migration for ' + name + ' was attempted but did not exist in the dependencies array';
       }
     }
+
+    return exists;
   },
 
   requireNotExists: function(name)
   {
+    var exists = indexOf( this.dependents, name ) !== false;
+    var empty = this.datas[ name ].length === 0;
+
     if ( Rekord.migrationTest )
     {
-      migrationLog( 'ensuring store for ' + name + ' does not exist yet in ' + (this.safe ? 'safe' : 'strict') + ' mode', indexOf( this.dependents, name ) !== false && this.datas[ name ].length === 0 );
+      migrationLog( 'ensuring store for ' + name + ' does not exist yet in ' + (this.safe ? 'safe' : 'strict') + ' mode', exists && empty );
     }
 
     if ( !this.safe )
     {
-      if ( indexOf( this.dependents, name ) === false )
+      if ( !exists )
       {
         throw 'A creation migration for ' + name + ' was attempted but did not exist in the dependencies array';
       }
-      if ( this.datas[ name ].length !== 0 )
+      if ( !empty )
       {
         throw 'A creation migration for ' + name + ' was attempted but existing data was found';
       }
     }
+
+    return exists && empty;
   }
 };

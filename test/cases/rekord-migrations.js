@@ -383,7 +383,7 @@ test( 'model rename', function(assert)
   var t2 = Todo.get(2);
 
   ok( t1, 't1 exists' );
-  ok( t1, 't2 exists' );
+  ok( t2, 't2 exists' );
 
   Rekord.migrationsClear();
 });
@@ -483,12 +483,597 @@ test( 'model moveRelatedIn', function(assert)
   Rekord.migrationsClear();
 });
 
-// field transform
-// model newRecord
-// model throw exception if model is not in dependencies
-// model safe mode (model create, model drop, model rename)
-// test mode
-// multiple migrations
-// ignore existing migration
-// load promise success timing
-// direct datas manipulation
+test( 'field transform', function(assert)
+{
+  var prefix = 'field_transform_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+
+  TodoStore.map.put(1, newRecord({id: 1, name: 't1', done: true}));
+  TodoStore.map.put(2, newRecord({id: 2, name: 't2', done: false}));
+  TodoStore.map.put(3, newRecord({id: 3, name: 't3', done: false}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.migrate(TodoName, function() {
+      this.transform(function(todo) {
+        if (todo.done === true) {
+          return false;
+        }
+        this.setField( todo, 'done_at', todo.id * 2 );
+      });
+    });
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  Rekord.load();
+
+  var t1 = Todo.get(1);
+  var t2 = Todo.get(2);
+  var t3 = Todo.get(3);
+
+  notOk( t1, 't1 does not exist' );
+  ok( t2, 't2 exists' );
+  ok( t3, 't3 exists' );
+  strictEqual( t2.done_at, 4 );
+  strictEqual( t3.done_at, 6 );
+
+  Rekord.migrationsClear();
+});
+
+test( 'model newRecord', function(assert)
+{
+  var prefix = 'model_newRekord_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  expect( 1 );
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    deepEqual( migrator.newRecord({
+      id: 3, name: 'name3'
+    }), {
+      id: 3, name: 'name3',
+      $status: 0, $saved: {
+        id: 3, name: 'name3'
+      }
+    });
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  Rekord.load();
+
+  Rekord.migrationsClear();
+});
+
+test( 'model drop notExists', function(assert)
+{
+  var prefix = 'model_drop_notExists_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.drop('nope');
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model rename notExists', function(assert)
+{
+  var prefix = 'model_rename_notExists_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.rename('nope', TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model create exists', function(assert)
+{
+  var prefix = 'model_create_exists_';
+  var TodoName = prefix + 'todos';
+  var OldTodoName = prefix + 'old_todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  TodoStore.map.put(1, newRecord({id: 1, name: 'name1'}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, OldTodoName], function(migrator, datas)
+  {
+    migrator.create(TodoName, function() {
+      return []
+    });
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model rename exists', function(assert)
+{
+  var prefix = 'model_rename_exists_';
+  var TodoName = prefix + 'todos';
+  var OldTodoName = prefix + 'old_todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  TodoStore.map.put(1, newRecord({id: 1, name: 'name1'}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, OldTodoName], function(migrator, datas)
+  {
+    migrator.rename(OldTodoName, TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model rename notExists', function(assert)
+{
+  var prefix = 'model_rename_notExists_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  TodoStore.map.put(1, newRecord({id: 1, name: 'name1'}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.rename('nope', TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model moveRelatedOut notExists', function(assert)
+{
+  var prefix = 'model_moveRelatedOut_notExists_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.moveRelatedOut('nope', 'bleh', TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model moveRelatedOut exists', function(assert)
+{
+  var prefix = 'model_moveRelatedOut_exists_';
+  var TodoName = prefix + 'todos';
+  var OldTodoName = prefix + 'old_todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+  TodoStore.map.put(1, newRecord({id: 1, name: 'name1'}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, OldTodoName], function(migrator, datas)
+  {
+    migrator.moveRelatedOut(OldTodoName, 'bleh', TodoName);
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model moveRelatedIn notExists from', function(assert)
+{
+  var prefix = 'model_moveRelatedIn_notExists_from_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.moveRelatedIn('nope');
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model moveRelatedIn notExists into', function(assert)
+{
+  var prefix = 'model_moveRelatedIn_notExists_from_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.moveRelatedIn(TodoName, 'id', 'nope');
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'model migrate notExists', function(assert)
+{
+  var prefix = 'model_migrate_notExists';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.migrate('nope', function(nopes) {
+
+    });
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done', 'done_at']
+  });
+
+  throws(function() {
+    Rekord.load();
+  });
+
+  Rekord.migrationsClear();
+});
+
+test( 'direct datas manipulation', function(assert)
+{
+  var prefix = 'direct_data_manipulation_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+
+  TodoStore.map.put(1, newRecord({id: 1, name: 't1', done: true}));
+  TodoStore.map.put(2, newRecord({id: 2, name: 't2', done: false}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    var todos = datas[ TodoName ];
+    for (var i = 0; i < todos.length; i++) {
+      var todo = todos[ i ];
+      todo.done = todo.done ? 'Y' : 'N';
+    }
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done']
+  });
+
+  Rekord.load();
+
+  var t1 = Todo.get(1);
+  var t2 = Todo.get(2);
+
+  strictEqual( t1.done, 'Y', 'true converted to Y' );
+  strictEqual( t2.done, 'N', 'false converted to N' );
+
+  Rekord.migrationsClear();
+});
+
+test( 'ignore existing migration', function(assert)
+{
+  var prefix = 'ignore_existing_migration_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var MigrationsStore = Rekord.store[ MigrationsName ] = new TestStore();
+  MigrationsStore.map.put('m1', 'm1');
+
+  expect(1);
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    ok( false, 'migration should not run!' )
+  });
+  Rekord.migration('m2', [TodoName], function(migrator, datas)
+  {
+    ok( true, 'migration should run!' )
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done']
+  });
+
+  Rekord.load();
+
+  Rekord.migrationsClear();
+});
+
+test( 'multiple migrations', function(assert)
+{
+  var prefix = 'multiple_migrations_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  expect(2);
+
+  var migrationCount = 0;
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    strictEqual( ++migrationCount, 1 );
+  });
+  Rekord.migration('m2', [TodoName], function(migrator, datas)
+  {
+    strictEqual( ++migrationCount, 2 );
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done']
+  });
+
+  Rekord.load();
+
+  Rekord.migrationsClear();
+});
+
+test( 'test', function(assert)
+{
+  var prefix = 'test_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+
+  TodoStore.map.put(1, newRecord({id: 1, name: 't1', done: true}));
+  TodoStore.map.put(2, newRecord({id: 2, name: 't2', done: false}));
+
+  Rekord.migrationTest = true;
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.drop(TodoName);
+  });
+
+  Rekord.load();
+  Rekord.migrationTest = false;
+
+  strictEqual( TodoStore.map.size(), 2 );
+  ok( Rekord.migrationLogs.length );
+
+  Rekord.migrationsClear();
+});
+
+test( 'model create safe', function(assert)
+{
+  var prefix = 'model_create_safe_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+
+  TodoStore.map.put(1, newRecord({id: 1, name: 't1', done: true}));
+  TodoStore.map.put(2, newRecord({id: 2, name: 't2', done: false}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.safe = true;
+    migrator.create(TodoName, function() {
+      return [
+        migrator.newRecord({id: 3, name: 't3', done: true})
+      ];
+    });
+  });
+
+  Rekord.load();
+
+  strictEqual( TodoStore.map.size(), 2 );
+
+  Rekord.migrationsClear();
+});
+
+test( 'model drop safe', function(assert)
+{
+  var prefix = 'model_drop_safe_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.safe = true;
+    migrator.drop('nope');
+
+    ok( true, 'no error thrown' );
+  });
+
+  Rekord.load();
+
+  Rekord.migrationsClear();
+});
+
+test( 'model rename safe', function(assert)
+{
+  var prefix = 'model_rename_safe_';
+  var TodoName = prefix + 'todos';
+  var OldTodoName = prefix + 'old_todos';
+  var MigrationsName = prefix + 'migrations';
+
+  var TodoStore = Rekord.store[ TodoName ] = new TestStore();
+
+  TodoStore.map.put(1, newRecord({id: 1, name: 't1', done: true}));
+  TodoStore.map.put(2, newRecord({id: 2, name: 't2', done: false}));
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName, OldTodoName], function(migrator, datas)
+  {
+    migrator.safe = true;
+    migrator.rename('nope', 'noperz');
+    migrator.rename(OldTodoName, TodoName);
+
+    ok( true, 'no error thrown' );
+  });
+
+  Rekord.load();
+
+  strictEqual( TodoStore.map.size(), 2 );
+
+  Rekord.migrationsClear();
+});
+
+test( 'model migrate safe', function(assert)
+{
+  var prefix = 'model_migrate_safe_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    migrator.safe = true;
+    migrator.migrate('nope');
+
+    ok( true, 'no error thrown' );
+  });
+
+  Rekord.load();
+
+  Rekord.migrationsClear();
+});
+
+test( 'promise timing', function(assert)
+{
+  var timer = assert.timer();
+  var prefix = 'promise_timing_';
+  var TodoName = prefix + 'todos';
+  var MigrationsName = prefix + 'migrations';
+  var promise = null;
+
+  var MigrationsStore = Rekord.store[ MigrationsName ] = new TestStore();
+
+  MigrationsStore.delay = 2;
+
+  Rekord.migrationStore = MigrationsName;
+  Rekord.migration('m1', [TodoName], function(migrator, datas)
+  {
+    notOk( promise.isComplete() );
+  });
+
+  var Todo = Rekord({
+    name: TodoName,
+    fields: ['name', 'done']
+  });
+
+  promise = Rekord.load();
+
+  notOk( promise.isComplete() );
+
+  wait( 3, function()
+  {
+    ok( promise.isComplete() );
+  });
+
+  timer.run();
+
+  Rekord.migrationsClear();
+});

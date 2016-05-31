@@ -4,7 +4,7 @@
 
 Rekord.load = function(callback, context)
 {
-  var promise = Rekord.loadPromise = Rekord.loadPromise || new Promise( null, false );
+  var promise = Rekord.loadPromise = new Promise( null, false );
   var loading = Rekord.unloaded.slice();
   var loaded = [];
   var loadedSuccess = [];
