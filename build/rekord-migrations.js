@@ -124,7 +124,7 @@ ApplicationMigrator.prototype =
       for (var i = 0; i < intoDatas.length; i++)
       {
         var record = intoDatas[ i ];
-        var related = fromDatas.where(function(fromModel)
+        var related = fromDatas.where(function(fromModel) // jshint ignore:line
         {
           return propsMatch(fromModel, fromKey, record, intoKey);
         });
@@ -693,4 +693,4 @@ function migrationLog()
   Rekord.ApplicationMigrator = ApplicationMigrator;
   Rekord.ModelMigrator = ModelMigrator;
 
-})(this, Rekord);
+})(this, this.Rekord);
