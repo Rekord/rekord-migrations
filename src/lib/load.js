@@ -143,7 +143,7 @@ Rekord.load = function(callback, context)
 
           for (var k = 0; k < modelData.length; k++)
           {
-            modelKeys[ k ] = modelDatabase.buildKeyFromInput( modelData[ k ] );
+            modelKeys[ k ] = modelDatabase.keyHandler.buildKeyFromInput( modelData[ k ] );
           }
 
           modelStore.reset( modelKeys, modelData, onStoreReset, onStoreReset );

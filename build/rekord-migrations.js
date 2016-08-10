@@ -1,3 +1,4 @@
+/* rekord-migrations 1.4.0 - Migrations for rekord by Philip Diffenderfer */
 (function(global, Rekord, undefined)
 {
   var Model = Rekord.Model;
@@ -541,7 +542,7 @@ Rekord.load = function(callback, context)
 
           for (var k = 0; k < modelData.length; k++)
           {
-            modelKeys[ k ] = modelDatabase.buildKeyFromInput( modelData[ k ] );
+            modelKeys[ k ] = modelDatabase.keyHandler.buildKeyFromInput( modelData[ k ] );
           }
 
           modelStore.reset( modelKeys, modelData, onStoreReset, onStoreReset );
