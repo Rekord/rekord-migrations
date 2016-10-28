@@ -1,4 +1,4 @@
-/* rekord-migrations 1.4.0 - Migrations for rekord by Philip Diffenderfer */
+/* rekord-migrations 1.4.1 - Migrations for rekord by Philip Diffenderfer */
 (function(global, Rekord, undefined)
 {
   var Model = Rekord.Model;

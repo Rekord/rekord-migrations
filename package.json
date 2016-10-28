@@ -1,9 +1,10 @@
 {
   "name": "rekord-migrations",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Migrations for rekord",
   "author": "Philip Diffenderfer",
   "license": "MIT",
+  "main": "build/rekord-migrations.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/Rekord/rekord-migrations.git"
