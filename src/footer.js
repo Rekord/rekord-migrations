@@ -19,4 +19,6 @@
   Rekord.ApplicationMigrator = ApplicationMigrator;
   Rekord.ModelMigrator = ModelMigrator;
 
-})(this, this.Rekord);
+  return Rekord;
+
+}));
