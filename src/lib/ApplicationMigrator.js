@@ -7,7 +7,7 @@ function ApplicationMigrator(name, dependents, stores, datas)
   this.safe = false;
 }
 
-ApplicationMigrator.prototype =
+Class.create( ApplicationMigrator,
 {
   create: function(name, creator)
   {
@@ -199,4 +199,4 @@ ApplicationMigrator.prototype =
 
     return exists && empty;
   }
-};
+});

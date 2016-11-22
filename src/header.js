@@ -27,6 +27,7 @@
   var Collection = Rekord.Collection;
   var Promise = Rekord.Promise;
   var Events = Rekord.Events;
+  var Class = Rekord.Class;
 
   var isArray = Rekord.isArray;
   var isObject = Rekord.isObject;

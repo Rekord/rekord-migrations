@@ -1,4 +1,4 @@
-/* rekord-migrations 1.4.3 - Migrations for rekord by Philip Diffenderfer */
+/* rekord-migrations 1.5.0 - Migrations for rekord by Philip Diffenderfer */
 // UMD (Universal Module Definition)
 (function (root, factory)
 {
@@ -28,6 +28,7 @@
   var Collection = Rekord.Collection;
   var Promise = Rekord.Promise;
   var Events = Rekord.Events;
+  var Class = Rekord.Class;
 
   var isArray = Rekord.isArray;
   var isObject = Rekord.isObject;
@@ -50,7 +51,7 @@ function ApplicationMigrator(name, dependents, stores, datas)
   this.safe = false;
 }
 
-ApplicationMigrator.prototype =
+Class.create( ApplicationMigrator,
 {
   create: function(name, creator)
   {
@@ -242,7 +243,7 @@ ApplicationMigrator.prototype =
 
     return exists && empty;
   }
-};
+});
 
 function ModelMigrator(app, name, store, data)
 {
@@ -253,7 +254,7 @@ function ModelMigrator(app, name, store, data)
   this.migrateRemovePending = false;
 }
 
-ModelMigrator.prototype =
+Class.create( ModelMigrator,
 {
 
   drop: function(fieldInput)
@@ -418,7 +419,7 @@ ModelMigrator.prototype =
     return this;
   }
 
-};
+});
 
 
 // override Rekord.load

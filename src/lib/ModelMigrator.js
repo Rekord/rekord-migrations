@@ -7,7 +7,7 @@ function ModelMigrator(app, name, store, data)
   this.migrateRemovePending = false;
 }
 
-ModelMigrator.prototype =
+Class.create( ModelMigrator,
 {
 
   drop: function(fieldInput)
@@ -172,4 +172,4 @@ ModelMigrator.prototype =
     return this;
   }
 
-};
+});
